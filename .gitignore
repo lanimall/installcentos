@@ -4,3 +4,8 @@ validate/.terraform
 validate/terraform.*
 validate/ip.tmp
 openshift-ansible
+
+*.rpm
+*.download
+nohup.out*
+*.log
