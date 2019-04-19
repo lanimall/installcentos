@@ -4,7 +4,7 @@
 
 ## Default variables to use
 export INTERACTIVE=${INTERACTIVE:="true"}
-export PVS=${INTERACTIVE:="true"}
+export PVS=${PVS:="true"}
 export DOMAIN=${DOMAIN:="$(curl -s ipinfo.io/ip).nip.io"}
 export USERNAME=${USERNAME:="$(whoami)"}
 export PASSWORD=${PASSWORD:=password}
@@ -81,6 +81,9 @@ if [ "$LETSENCRYPT" = true ] ; then
 fi
 echo "******"
 
+
+yum install -y git NetworkManager
+
 # install updates
 yum update -y
 
@@ -111,7 +114,9 @@ yum -y --enablerepo=epel install pyOpenSSL
 ##remove ansible first
 yum -y remove ansible
 
-curl -o ansible.rpm https://releases.ansible.com/ansible/rpm/release/epel-7-x86_64/ansible-2.6.5-1.el7.ans.noarch.rpm
+#curl -o ansible.rpm https://releases.ansible.com/ansible/rpm/release/epel-7-x86_64/ansible-2.6.5-1.el7.ans.noarch.rpm
+curl -o ansible.rpm https://releases.ansible.com/ansible/rpm/release/epel-7-x86_64/ansible-2.7.9-1.el7.ans.noarch.rpm
+
 yum -y --enablerepo=epel install ansible.rpm
 
 [ ! -d openshift-ansible ] && git clone https://github.com/openshift/openshift-ansible.git -b release-${VERSION} --depth=1
@@ -157,7 +162,8 @@ if [ "$memory" -lt "4194304" ]; then
 	export METRICS="False"
 fi
 
-if [ "$memory" -lt "16777216" ]; then
+#if [ "$memory" -lt "16777216" ]; then
+if [ "$memory" -lt "16000000" ]; then
 	export LOGGING="False"
 fi
 
@@ -225,38 +231,3 @@ mkdir -p /etc/origin/master/
 touch /etc/origin/master/htpasswd
 
 ansible-playbook -i inventory.ini openshift-ansible/playbooks/prerequisites.yml
-ansible-playbook -i inventory.ini openshift-ansible/playbooks/deploy_cluster.yml
-
-htpasswd -b /etc/origin/master/htpasswd ${USERNAME} ${PASSWORD}
-oc adm policy add-cluster-role-to-user cluster-admin ${USERNAME}
-
-if [ "$PVS" = "true" ]; then
-
-	curl -o vol.yaml $SCRIPT_REPO/vol.yaml
-
-	for i in `seq 1 200`;
-	do
-		DIRNAME="vol$i"
-		mkdir -p /mnt/data/$DIRNAME 
-		chcon -Rt svirt_sandbox_file_t /mnt/data/$DIRNAME
-		chmod 777 /mnt/data/$DIRNAME
-		
-		sed "s/name: vol/name: vol$i/g" vol.yaml > oc_vol.yaml
-		sed -i "s/path: \/mnt\/data\/vol/path: \/mnt\/data\/vol$i/g" oc_vol.yaml
-		oc create -f oc_vol.yaml
-		echo "created volume $i"
-	done
-	rm oc_vol.yaml
-fi
-
-echo "******"
-echo "* Your console is https://console.$DOMAIN:$API_PORT"
-echo "* Your username is $USERNAME "
-echo "* Your password is $PASSWORD "
-echo "*"
-echo "* Login using:"
-echo "*"
-echo "$ oc login -u ${USERNAME} -p ${PASSWORD} https://console.$DOMAIN:$API_PORT/"
-echo "******"
-
-oc login -u ${USERNAME} -p ${PASSWORD} https://console.$DOMAIN:$API_PORT/
